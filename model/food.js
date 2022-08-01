@@ -17,12 +17,10 @@ const Food = db.define('food', {
     description: {
         type: Sequelize.TEXT
     },
-    ingredients: {
-        type: Sequelize.TEXT
-    },
     price: {
         type: Sequelize.STRING,
     }
 }, {timestamps: true});
+
 
 module.exports = Food;

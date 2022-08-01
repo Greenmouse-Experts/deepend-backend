@@ -1,6 +1,8 @@
 const Ads = require("../model/ads");
 const User = require("../model/user");
 const cloudinary = require("../util/cloudinary").cloudinary;
+const store = require('store')
+
 
 exports.createAds = async (req, res, next) => {
   const { title, ref_link } = req.body;
@@ -12,9 +14,10 @@ exports.createAds = async (req, res, next) => {
       },
     }).then(async (ads) => {
       if (ads) {
-        res.status(403).json({
-          message: "Ads with that title and link alread exists",
-        });
+                  req.flash("warning", 'Ads with Title and Link Already exist');
+        res.redirect("/dashboard/admin/createAds")
+
+
       } else {
         const result = await cloudinary.uploader.upload(req.file.path);
         const ad = new Ads({
@@ -31,11 +34,8 @@ exports.createAds = async (req, res, next) => {
           }
         });
 
-        res.status(201).json({
-          status: true,
-          message: "Ads Created Successfully",
-          data: adres,
-        });
+        res.redirect("/dashboard/admin/getAllAds")
+        
       }
     });
   } catch (error) {
@@ -47,7 +47,52 @@ exports.createAds = async (req, res, next) => {
 
 exports.getAllAds = async (req, res, next) => {
   try {
-    await Ads.findAll().then((ads) => {
+    await Ads.findAll({
+      order: [
+        ['createdAt', 'ASC']
+    ],
+    }).then((ads) => {
+      if (ads) {
+        console.log("Ads found")
+        store.set("Ad", JSON.stringify(ads));
+              let name = req.user.fullname.split(" ");
+              let email = req.user.email;
+              data = JSON.parse(store.get("Ad"));
+              console.log(data)
+              res.render("dashboard/admin/getAllAds", {
+                user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                email: email,
+                data
+              });
+              next();
+      } else {
+        console.log("No Ads found")
+                store.set("Ad", JSON.stringify(ads));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("Ad"));
+                      console.log(data)
+                      res.render("dashboard/admin/getAllAds", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data
+                      });
+                      next();
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    return next(error);
+  }
+};
+
+exports.getAppAllAds = async (req, res, next) => {
+  try {
+    await Ads.findAll({
+      order: [
+        ['createdAt', 'ASC']
+    ],
+    }).then((ads) => {
       if (ads) {
         res.status(200).json({
           status: true,
@@ -65,6 +110,7 @@ exports.getAllAds = async (req, res, next) => {
     return next(error);
   }
 };
+
 exports.getAdById = async (req, res, next) => {
   try {
     await Ads.findOne({

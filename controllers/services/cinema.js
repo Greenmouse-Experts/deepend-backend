@@ -1,12 +1,16 @@
 const Product = require('../../model/cinema');
 const Image = require("../../model/cinemaimage");
 const cloudinary = require('../../util/cloudinary');
+const Review = require("../../model/reviewcinema")
+// const Time = require("../../model/cinematime");
+const Snack = require("../../model/cinemasnacks")
 const User = require('../../model/user');
 const { Op } = require('sequelize')
 const fs = require('fs')
+const store = require('store');
 
-exports.createCinemaService = async(req, res) => {
-    const { title, genre, storyline, rating, view_date, cast, duration, age_rate,  price } = req.body;
+exports.createCinemaService = async(req, res, next) => {
+    const { title, genre, storyline, rating, view_date, cast, seat, duration, age_rate, price, morningTime, afternoonTime, eveningTime, snackName, snackPrice} = req.body;
     try {
 
         const cinema = new Product({
@@ -17,10 +21,46 @@ exports.createCinemaService = async(req, res) => {
             duration,
             age_rate,
             view_date,
+            seat,
+            morning: morningTime,
+            evening: eveningTime,
+            afternoon: afternoonTime,
             rating: parseFloat(rating),
             price: price,
         })
         var cinemaout = await cinema.save();
+
+        if(cinemaout){
+
+            if(snackName && snackPrice){
+                 if(Array.isArray(snackName)){
+                    var snack_price = (Name, Price)=>{
+                        var output= [];
+                        for(let i=0; i<Name.length; i++){
+                            output.push({
+                                cinemaId: cinemaout.id,
+                                name: Name[i],
+                                price: Price[i]
+                            });
+                        };
+                        return output;
+                    }
+                 }else{
+                     snack_price = (Name, Price)=>{
+                         var output = [];
+                         output.push({
+                            cinemaId: cinemaout.id,
+                            name: Name,
+                            price: Price
+                        });
+                        return output;
+                     }
+                    }
+                 await Snack.bulkCreate(snack_price(snackName, snackPrice), {returning: true})
+            }
+
+           
+        }
 
         if(req.file || req.files){
              const uploader = async (path) => await cloudinary.uploads(path, 'cinemaImages');
@@ -60,28 +100,25 @@ exports.createCinemaService = async(req, res) => {
                     attributes: {
                         exclude: ["createdAt", "updatedAt"]
                     }
+                },
+                {
+                    model: Snack,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
                 }
             ]
         })
-
-            
        
-        res.status(201).json({
-            status: true,
-            data: out
-        })        
+        res.redirect("/dashboard/admin/get-cinema-posts")
+       
     } catch (error) {
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }
 
-
-exports.getCinemaServices = async(req, res) => {
+exports.getCinemaAppServices = async(req, res, next) => {
     const status = req.query.status;
     const length = req.query.length
     try {
@@ -98,7 +135,28 @@ exports.getCinemaServices = async(req, res) => {
                     attributes: {
                         exclude: ["createdAt", "updatedAt"]
                     }
+                },
+                {
+                    model: Snack,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
                 }
+
             ]
         });
 
@@ -120,6 +178,26 @@ exports.getCinemaServices = async(req, res) => {
                     attributes: {
                         exclude: ["createdAt", "updatedAt"]
                     }
+                },
+                {
+                    model: Snack,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
                 }
             ]
         });
@@ -138,6 +216,26 @@ exports.getCinemaServices = async(req, res) => {
                     attributes: {
                         exclude: ["createdAt", "updatedAt"]
                     }
+                },
+                {
+                    model: Snack,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
                 }
             ]
         });
@@ -156,6 +254,26 @@ exports.getCinemaServices = async(req, res) => {
                     attributes: {
                         exclude: ["createdAt", "updatedAt"]
                     }
+                },
+                {
+                    model: Snack,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
                 }
             ]
         });
@@ -188,15 +306,253 @@ exports.getCinemaServices = async(req, res) => {
         }
     } catch (error) {
         console.error(error)
-       return res.status(500).json({
-            status: false,
-            message: "An error occured",
-            error: error
-        })
+        next(error);
     }
 }
 
-exports.getCinemaByTitle = async(req, res) => {
+
+exports.cinemaCount = async (rea, res, next)=>{
+    try {
+        const cinemas = await Product.count()
+        if (cinemas){
+            store.set("cinemas", cinemas);
+            console.log('cinemas found:', cinemas)
+           
+                next();
+           
+        } else{
+          console.log("no cinemas", cinemas)
+          store.set("cinemas", cinemas);
+                
+                next();
+        }
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            status: false,
+            message: "An error occured refresh the page"
+        })
+        next(error)
+        // req.flash("error", "An error occured refresh the page")
+    }
+}
+
+exports.getCinemaServices = async(req, res, next) => {
+    const status = req.query.status;
+    const length = req.query.length
+    try {
+        if(status === "showing"){
+            var cinema = await Product.findAll({where: {
+                view_date: (new Date).toISOString().substr(0, 10)
+            },
+            order: [
+                ['view_date', 'ASC']
+            ],
+            include:[
+                {
+                    model: Image,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Snack,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
+                }
+            ]
+        });
+
+            
+        }
+
+        if(status === "soon"){
+            cinema = await Product.findAll({
+                where: {
+                view_date: {
+                    [Op.gt]: (new Date).toISOString().substr(0, 10)
+                } 
+            }, order: [
+                ['view_date', 'ASC']
+            ],
+            include:[
+                {
+                    model: Image,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Snack,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
+                }
+            ]
+        });
+            
+        }
+
+        if(status === "rated"){
+            var cinema = await Product.findAll({
+            order: [
+                ['rating', 'DESC'],
+                ['view_date', 'ASC']
+            ],
+            include:[
+                {
+                    model: Image,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Snack,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
+                }
+            ]
+        });
+            
+        }
+
+        if(!status){
+            var cinema = await Product.findAll({
+            order: [
+                ['view_date', 'ASC']
+            ],
+
+            include:[
+                {
+                    model: Image,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Snack,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
+                }
+            ]
+        });
+            
+        }
+      
+        if(cinema){
+
+            if(cinema.length <= length || length === "" || !length){
+                console.log("cinemas found")
+                store.set("cinema", JSON.stringify(cinema));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("cinema"));
+                      console.log(data)
+                      res.render("dashboard/admin/cinemas", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data
+                      });
+                      next();
+            }else{
+                let begin = length - 10;
+                let end = length + 1;
+                var sliced = cinema.slice(begin, end);
+                
+                console.log("cinemas found")
+                store.set("cinema", JSON.stringify(cinema));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("cinema"));
+                      console.log(data)
+                      res.render("dashboard/admin/cinemas", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data
+                      });
+                      next();
+            }
+            
+        } else{
+            console.log("No cinemas found")
+            store.set("cinema", JSON.stringify(cinema));
+                  let name = req.user.fullname.split(" ");
+                  let email = req.user.email;
+                  data = JSON.parse(store.get("cinema"));
+                  console.log(data)
+                  res.render("dashboard/admin/cinemas", {
+                    user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                    email: email,
+                    data
+                  });
+                  next();
+        }
+    } catch (error) {
+        console.error(error)
+        next(error);
+    }
+}
+
+exports.getCinemaByTitle = async(req, res, next) => {
     const { title }= req.body;
     try {
         var cinema = await Product.findAll({where: {
@@ -208,6 +564,26 @@ exports.getCinemaByTitle = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Snack,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
     })
@@ -223,15 +599,11 @@ exports.getCinemaByTitle = async(req, res) => {
             })
         }
     } catch (error) {
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }
-exports.getCinemaById = async(req, res) => {
+exports.getCinemaById = async(req, res, next) => {
     const id= req.params.id;
     try {
         var cinema = await Product.findOne({where: {
@@ -243,6 +615,26 @@ exports.getCinemaById = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Snack,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
     })
@@ -257,17 +649,80 @@ exports.getCinemaById = async(req, res) => {
             })
         }
     } catch (error) {
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }
 
-exports.updateCinema = async(req, res) => {
-    const { title, genre, storyline, rating, view_date, cast, duration, age_rate,  price } = req.body;
+exports.getCinemaByIdAdmin = async(req, res, next) => {
+    const id= req.params.id;
+    try {
+        var cinema = await Product.findOne({where: {
+            id: id,
+        }, 
+        include:[
+            {
+                model: Image,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Snack,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
+            }
+        ]
+    })
+        if(cinema){
+            console.log("cinemas found")
+            store.set("cinema", JSON.stringify(cinema));
+                  let name = req.user.fullname.split(" ");
+                  let email = req.user.email;
+                  data = JSON.parse(store.get("cinema"));
+                  console.log(data);
+                  var img = data['cinemaimages']
+                  
+            // if(img.length){ for(var i=0; i< img.length; i++) {
+            //     console.log('image found :',i ,img[i].img_url)
+            // }}else{
+
+            // }
+
+                  res.render("dashboard/admin/cinema-view", {
+                    user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                    email: email,
+                    data: data,
+                    img: img
+                  });
+                  
+    } else{
+        req.flash("error", "cinema with id not found")
+        res.redirect("/dashboard/admin/")
+    }
+    } catch (error) {
+         console.error(error)
+        next(error);
+    }
+}
+
+exports.updateCinema = async(req, res, next) => {
+    const { title, genre, storyline, rating, view_date, cast, seat, duration, age_rate, price, morningTime, afternoonTime, eveningTime} = req.body;
     try{
         
             await Product.update({
@@ -278,11 +733,16 @@ exports.updateCinema = async(req, res) => {
                 view_date: view_date,
                 duration: duration,
                 age_rate: age_rate,
+                seat: seat,
+                morning: morningTime,
+                afternoon: afternoonTime,
+                evening: eveningTime,
                 rating: parseFloat(rating),
                 price: price,
             }, { where: {
                 id: req.params.id
             }})
+           
             res.status(200).json({
                 status: true,
                 message: "Post updated"
@@ -290,16 +750,12 @@ exports.updateCinema = async(req, res) => {
         
         
     } catch{
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }
 
-exports.uploadCinemaImage = async(req, res) => {
+exports.uploadCinemaImage = async(req, res, next) => {
     try{
         if(req.files || req.file){
             const uploader = async (path) => await cloudinary.uploads(path, 'cinemaImages');
@@ -337,16 +793,12 @@ exports.uploadCinemaImage = async(req, res) => {
           
         
     } catch{
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }
 
-exports.RemoveCinemaImage = async(req, res) => {
+exports.RemoveCinemaImage = async(req, res, next) => {
     try{
        
         await Image.findOne({
@@ -375,11 +827,7 @@ exports.RemoveCinemaImage = async(req, res) => {
         })
      
     } catch{
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }

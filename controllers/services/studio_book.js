@@ -1,10 +1,13 @@
 const Product = require('../../model/studio_book');
 const Image = require('../../model/studio_book_image');
+const Review = require("../../model/reviewstudio")
 const cloudinary = require('../../util/cloudinary');
 const User = require('../../model/user');
 const fs = require('fs')
+const store = require('store')
 
-exports.createStudioService = async(req, res) => {
+
+exports.createStudioService = async(req, res, next) => {
     const { title, description, location, per_time, price, rating, equipment } = req.body;
     try {
             const studio = new Product({
@@ -13,7 +16,7 @@ exports.createStudioService = async(req, res) => {
                     location,
                     per_time,
                     rating: parseFloat(rating),
-                    price: price,
+                    price,
                     equipment,
                 })
                 var studiout = await studio.save();
@@ -27,6 +30,7 @@ exports.createStudioService = async(req, res) => {
                 for (const file of files){
                     const { path } = file;
                     const newPath = await uploader(path)
+                    console.log(newPath)
                     urls.push(newPath.url);
                     ids.push(newPath.id)
                     fs.unlinkSync(path)
@@ -57,24 +61,17 @@ exports.createStudioService = async(req, res) => {
                     }
                 ]});
 
-            res.status(201).json({
-                status: true,
-                data: output
-            })
+                res.redirect("/dashboard/admin/get-studio-posts")
+
         
         
     } catch (error) {
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }
 
-
-exports.getStudioServices = async(req, res) => {
+exports.getStudioAppServices = async(req, res, next) => {
     try {
         const length = req.query.length
         var studio = await Product.findAll({
@@ -87,6 +84,20 @@ exports.getStudioServices = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
     });
@@ -117,15 +128,122 @@ exports.getStudioServices = async(req, res) => {
         }
     } catch (error) {
         console.error(error)
-       return res.status(500).json({
-            status: false,
-            message: "An error occured",
-            error: error
-        })
+        next(error);
     }
 }
 
-// exports.getStudioForUser = async(req, res) => {
+exports.studioCount = async (rea, res, next)=>{
+    try {
+        const studios = await Product.count()
+        if (studios){
+            store.set("studios", studios);
+            console.log('studios found:', studios)
+           
+                next();
+           
+        } else{
+          console.log("no studios", studios)
+          store.set("studios", studios);
+                
+                next();
+        }
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            status: false,
+            message: "An error occured refresh the page"
+        })
+        next(error)
+        // req.flash("error", "An error occured refresh the page")
+    }
+}
+
+exports.getStudioServices = async(req, res, next) => {
+    try {
+        const length = req.query.length
+        var studio = await Product.findAll({
+            order: [
+            ['createdAt', 'ASC']
+        ],
+        include:[
+            {
+                model: Image,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
+            }
+        ]
+    });
+
+        
+        if(studio){
+            if(studio.length <= length || length === ""|| !length){
+               
+                console.log("studios found")
+                store.set("studio", JSON.stringify(studio));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("studio"));
+                      console.log(data)
+                      res.render("dashboard/admin/studios", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data
+                      });
+                      next();
+            }else{
+                let begin = length - 10;
+                let end = length + 1
+                var sliced = studio.slice(begin, end)
+                
+                console.log("studios found")
+                store.set("studio", JSON.stringify(studio));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("studio"));
+                      console.log(data)
+                      res.render("dashboard/admin/studios", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data
+                      });
+                      next();
+            }
+        } else{
+            console.log("No studio found")
+            store.set("studio", JSON.stringify(studio));
+                  let name = req.user.fullname.split(" ");
+                  let email = req.user.email;
+                  data = JSON.parse(store.get("studio"));
+                  console.log(data)
+                  res.render("dashboard/admin/studios", {
+                    user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                    email: email,
+                    data
+                  });
+                  next();
+        }
+    } catch (error) {
+        console.error(error)
+        next(error);
+    }
+}
+
+// exports.getStudioForUser = async(req, res, next) => {
 //     try {
 //         const studio = await Product.findAll({ where: {
 //             userid: req.user.id,
@@ -160,7 +278,7 @@ exports.getStudioServices = async(req, res) => {
 //     }
 // }
 
-exports.getStudioByTitle = async(req, res) => {
+exports.getStudioByTitle = async(req, res, next) => {
     const {title} = req.body;
     try {
         const studio = await Product.findAll({where: {
@@ -172,6 +290,20 @@ exports.getStudioByTitle = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
     })
@@ -187,16 +319,12 @@ exports.getStudioByTitle = async(req, res) => {
             })
         }
     } catch (error) {
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }
 
-exports.getStudioById = async(req, res) => {
+exports.getStudioById = async(req, res, next) => {
     const id= req.params.id;
     try {
         const studio = await Product.findOne({where: {
@@ -208,6 +336,20 @@ exports.getStudioById = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
     })
@@ -222,16 +364,73 @@ exports.getStudioById = async(req, res) => {
             })
         }
     } catch (error) {
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }
 
-exports.updateStudio = async(req, res) => {
+exports.getStudioByIdAdmin = async(req, res, next) => {
+    const id= req.params.id;
+    try {
+        const studio = await Product.findOne({where: {
+            id: id,
+        }, 
+        include:[
+            {
+                model: Image,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
+            }
+        ]
+    })
+        if(studio){
+            console.log("studios found")
+                store.set("studio", JSON.stringify(studio));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("studio"));
+                      console.log(data);
+                      var img = data['studioimages']
+                      
+                // if(img.length){ for(var i=0; i< img.length; i++) {
+                //     console.log('image found :',i ,img[i].img_url)
+                // }}else{
+
+                // }
+
+                      res.render("dashboard/admin/studio-view", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data: data,
+                        img: img
+                      });
+                      
+        } else{
+            req.flash("error", "studio with id not found")
+            res.redirect("/dashboard/admin/")
+        }
+    } catch (error) {
+         console.error(error)
+        next(error);
+    }
+}
+
+exports.updateStudio = async(req, res, next) => {
     const { title, description, location, per_time, price, rating, equipment } = req.body;
     try{
             await Product.update({
@@ -252,16 +451,12 @@ exports.updateStudio = async(req, res) => {
            
         
     } catch{
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }
 
-exports.uploadStudioImage = async(req, res) => {
+exports.uploadStudioImage = async(req, res, next) => {
     try{
         if(req.files || req.file){
             const uploader = async (path) => await cloudinary.uploads(path, 'studioImages');
@@ -299,16 +494,12 @@ exports.uploadStudioImage = async(req, res) => {
           
         
     } catch{
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }
 
-exports.RemoveStudioImage = async(req, res) => {
+exports.RemoveStudioImage = async(req, res, next) => {
     try{
        
         await Image.findOne({
@@ -337,11 +528,7 @@ exports.RemoveStudioImage = async(req, res) => {
         })
      
     } catch{
-        console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+         console.error(error)
+        next(error);
     }
 }

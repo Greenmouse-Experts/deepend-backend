@@ -23,6 +23,10 @@ const Order = db.define('foodorder', {
         type: Sequelize.BOOLEAN,
         defaultValue: true
     },
+    paid:{
+        type: Sequelize.BOOLEAN,
+        defaultValue: false
+    },
     address: {
         type: Sequelize.STRING
     },
@@ -31,6 +35,9 @@ const Order = db.define('foodorder', {
     },
     sub_total: {
         type: Sequelize.BIGINT
+    },
+    note:{
+        type: Sequelize.TEXT
     },
     status: {
         type: Sequelize.ENUM,
@@ -44,13 +51,16 @@ const Order = db.define('foodorder', {
     },
     access_code:{
         type: Sequelize.STRING
+    },
+    commission:{
+        type: Sequelize.FLOAT,
+        default: 0
     }
+
 }, {timestamps: true});
 
 Order.belongsTo(User, {foreignKey: 'userId'})
 User.hasMany(Order, {foreignKey: 'userId'});
-//Order.hasMany(Cart, {foreignKey: 'cartid'})
-//Cart.belongsTo(Order, {foreignKey: 'cartid'})
 
 
 module.exports = Order

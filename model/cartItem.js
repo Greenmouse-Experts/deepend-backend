@@ -4,6 +4,7 @@ const {nanoid} = require('nanoid');
 const User = require('./user');
 const Food = require('./food');
 const FoodExtra = require('./foodextras');
+const FoodPackage = require('./foodpackaging');
 const FoodOrder = require('./foodorder');
 
 const CartItem = db.define('fooditem', {
@@ -13,6 +14,10 @@ const CartItem = db.define('fooditem', {
         allowNull: false,
         primaryKey: true,
         defaultValue: () => nanoid(10)
+    },
+    ordered:{
+        type: Sequelize.BOOLEAN,
+        defaultValue: false
     },
     userId: {
         type: Sequelize.STRING(10),
@@ -32,6 +37,13 @@ const CartItem = db.define('fooditem', {
         type: Sequelize.STRING(10),
         references:{ 
             model: 'foodextras',
+            key: 'id',
+        }
+    },
+    foodpackageId: {
+        type: Sequelize.STRING(10),
+        references:{ 
+            model: 'foodpackagings',
             key: 'id',
         }
     },
@@ -57,14 +69,17 @@ const CartItem = db.define('fooditem', {
 CartItem.belongsTo(User, {foreignKey: 'userId'})
 User.hasMany(CartItem, {foreignKey: 'userId'});
 
-CartItem.hasMany(Food, {foreignKey: 'foodId'})
-Food.belongsTo(CartItem, {foreignKey: 'foodId'})
+Food.hasMany(CartItem, {foreignKey: 'foodId'})
+CartItem.belongsTo(Food, {foreignKey: 'foodId'})
 
-CartItem.hasMany(FoodExtra, {foreignKey: 'foodextrasId'});
-FoodExtra.belongsTo(CartItem, {foreignKey: 'foodextrasId'});
+CartItem.belongsTo(FoodExtra, {foreignKey: 'foodextrasId'});
+FoodExtra.hasMany(CartItem, {foreignKey: 'foodextrasId'});
+
+CartItem.belongsTo(FoodPackage, {foreignKey: 'foodpackageId'});
+FoodPackage.hasMany(CartItem, {foreignKey: 'foodpackageId'});
 
 FoodOrder.hasMany(CartItem, {foreignKey: 'orderId'});
 CartItem.belongsTo(FoodOrder, {foreignKey: 'orderId'});
 
 
-module.exports = Cart;
+module.exports = CartItem;

@@ -4,13 +4,15 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const session = require('express-session');
 //const flash = require('connect-flash')
-require('dotenv').config();
 const path = require('path');
+require('dotenv').config()
 const passport = require('passport');
 const cookieParser = require('cookie-parser');
 const webrouter = require('./routes/webroutes');
 const apirouter = require('./routes/apiroutes');
-const flash = require('express-flash-messages')
+const flash = require('express-flash-messages');
+const store = require('store');
+const multerpic = require('multer');
 
 
 
@@ -25,6 +27,7 @@ app.use(express.static(path.join(__dirname + 'uploads')));
 // Static Files
 // dashboard 
 app.use('/css', express.static(__dirname + 'public/css'));
+app.use('/css', express.static(__dirname + 'public'));
 app.use('/css', express.static(__dirname + 'public/assets2/css'));
 app.use('/font', express.static(__dirname + 'public/assets2/fonts'));
 app.use('/css', express.static(__dirname + 'public/assets3/css'));
@@ -37,16 +40,16 @@ app.use('/img', express.static(__dirname + 'public/img'));
 app.use('/img', express.static(__dirname + 'public/assets2/img'));
 app.use('/img', express.static(__dirname + 'public/assets3/img'));
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 app.use(cookieParser(process.env.CSECRET));
 app.use(session({
   resave: false,
   saveUninitialized: true,
-  secret: process.env.SECRET,
+  secret: process.env.TOKEN,
   cookie: {
-      httpOnly: true,
-      maxAge: 6000
+    httpOnly: false,
+    maxAge: 6000
   }
 }))
 app.use(flash({

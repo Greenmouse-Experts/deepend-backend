@@ -4,7 +4,7 @@ const {nanoid} = require('nanoid');
 const Hotel = require('./hotel');
 const User = require('./user');
 const HotelExtra = require('./hotelextras');
-const Transaction = require('./transactions');
+const Transaction = require('./usertransactions');
 
 const HotelBooking = db.define('hotelbooking', {
     id: {
@@ -42,6 +42,15 @@ const HotelBooking = db.define('hotelbooking', {
             key: 'id',
         }
     },
+    quantity:{
+        type: Sequelize.INTEGER,
+    },
+    start_date:{
+        type: Sequelize.DATEONLY
+    },
+    end_date:{
+        type: Sequelize.TIME
+    },
     transaction_url: {
         type: Sequelize.STRING,
     },
@@ -50,7 +59,11 @@ const HotelBooking = db.define('hotelbooking', {
     },
     access_code:{
         type: Sequelize.STRING,
+    },
+    commission:{
+        type: Sequelize.FLOAT
     }
+
 
     
 });

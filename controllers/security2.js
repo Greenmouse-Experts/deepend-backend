@@ -25,7 +25,7 @@ exports.emailVerification_V1 = async(req, res) => {
             email: email
         }})
         if(user){
-            const token = jwt.sign({email: user.email}, process.env.TOKEN, { expiresIn: "15m"});
+            const token = jwt.sign({email: user.email}, process.env.TOKEN, { expiresIn: "24h"});
             const link = `${process.env.BASE_URL}/email-verification?userId=${user.id}&token=${token}`;
 
           
@@ -333,19 +333,33 @@ exports.emailVerification_V2 = async(req, res) => {
 try {
         const token = req.query.token;
         const id = req.query.userId
-        const decode = jwt.verify(token, process.env.TOKEN);
-        if(decode){
-                await User.update({email_verify: true}, {where: {
-                    id: id
-                }})
-                res.status(200)
-                res.json("Email Verified successfully updated")
-                req.flash("success", "Email Verified successfully updated")
-        }else{
-            res.status(403)
-            req.flash("error", "Invalid Link"
-            )
-        }
+        var verify;
+        var status;
+        jwt.verify(token, process.env.TOKEN, async function(err, decode){
+          var user = await User.findOne({
+            where:{
+              id: id
+            }
+          })
+          if(decode && decode.email === user.email){
+                  await User.update({email_verify: true}, {where: {
+                      id: id
+                  }})
+                  verify = "Email Verified Successfully";
+                  status = true
+                  
+          }else if (err){
+            console.log(err)
+             verify = "Expired/Invalid Link";
+             status = false
+          }
+
+          res.render("base/EmailVerified", {
+            verify,
+            status
+          })
+        });
+        
     } catch (error) {
         console.error(error)
         res.status(500)
@@ -719,14 +733,14 @@ exports.forgotPassword = async(req, res) => {
 
 }
 
-exports.changePassword = async(req, res) => {
-    const { password, new_password, confirm_password} = req.body;
+exports.changePassword = async (req, res) => {
     try { 
+      const { email, old_password, new_password, confirm_password} = req.body;
         const user = await User.findOne({where: {
-            id: req.user.id
+            email: email
         }})
         if(user){
-            const validate = await bcrypt.compare(password, user.password);
+            const validate = await bcrypt.compare(old_password, user.password);
             if(validate){
                 if(new_password === confirm_password){
                     const salt = await bcrypt.genSalt(12);

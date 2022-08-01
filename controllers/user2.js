@@ -3,11 +3,14 @@ const Restaurant = require('../model/restuarant');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const passport = require('passport');
+const keys = require('../middleware/keys');
 require('dotenv').config();
-const nodemailer = require('nodemailer')
+const nodemailer = require('nodemailer');
 const baseurl = process.env.BASE_URL
+const store = require('store')
 
-exports.RegisterUser = async (role, req, res, next) => {
+
+exports.RegisterAdmin = async (req, res, next) => {
     try{
 
         const {email, password } = req.body;
@@ -18,151 +21,122 @@ exports.RegisterUser = async (role, req, res, next) => {
                 }
             });
         if(user) {
-            res.status(302).json({
-                status: false,
-                message: "User already exist"
-            })
-            // req.flash("error", "User already exist")
-            // res.redirect("back")
+            res.redirect("back")
+            req.flash("error", "User already exist")
         }
         const salt = await bcrypt.genSalt(12);
         const hashedPass = await bcrypt.hash(password, salt);
         
-        if(role === 'admin'){
-            // var verify = true;
-            var emailVerified = true
-        }else{
-        //   verify = false;
-          emailVerified = true
-        }
-        
-
         user = new User({
+            fullname: "Admin",
             email,
             password: hashedPass,
-            role: role,
-            email_verify: emailVerified
+            role: "admin",
+            email_verify: true
         });
     
         const Newuser = await user.save();
-        res.status(200).json({
-            status: true,
-            data: Newuser
-        })
-        // req.flash('success', "Registration successful")
-        //  res.redirect(`login-${role}`);
+        // res.status(200).json({
+        //     status: true,
+        //     data: Newuser
+        // })
+        req.flash('success', "Registration successful")
+         res.redirect(`login-admin`)
+         next()
 
     }catch(error){
         console.error(error)
-        res.status(500).json({
-            status: false,
-            message: error
-        })
+        // res.status(500).json({
+        //     status: false,
+        //     message: error
+        // })
+        // next(error)
+        req.flash("error", "An error occured refresh the page")
+        res.redirect("back")
         next(error)
-        // req.flash("error", "An error occured refresh the page")
-        // res.redirect("back")
     }
 };
 
 
-exports.webLoginUser = async (role, req, res, next) => {
-    try{
+exports.webLoginAdmin = async (req, res, next) => {
+  try{
 
-        const {email, password } = req.body;
-        const user = await User.findOne({where: {
-            email: email }
-        });
-        if(!user){
-            res.status(404).json({
-                status: false,
-                message: 'User does not exist'
-            })
-            // req.flash("warning", 'User does not exist');
-            // res.redirect("back")
-        }
-
-        if(user.role !== role){
-            res.status(401).json({
-                status: false,
-                message: 'Please ensure you are logging-in from the right portal'
-            })
-        //   req.flash("warning", "Please ensure you are logging-in from the right portal");
-        //   res.redirect("back")
-        }
-        
+      const {email, password } = req.body;
+      const user = await User.findOne({where: {
+          email: email }
+      });
+      if(!user || user === null){
+          req.flash("warning", 'User does not exist');
+          res.redirect("/login-admin")
+          next()
+      }else if(user.role !== "admin"){
+          // res.status(401).json({
+          //     status: false,
+          //     message: 'Please ensure you are logging-in from the right portal'
+          // })
+        req.flash("warning", "Please ensure you are logging-in from the right portal");
+        res.redirect("/login-admin")
+      }else{
         const validate = await bcrypt.compare(password, user.password);
-        if(validate){
+      if(validate){
 
-            let token = jwt.sign(
-                { 
-                fullname: user.fullname,
-                email: user.email,
-                role: user.role, 
-                id: user.id}, 
-                process.env.TOKEN, { expiresIn: 24 * 60 * 60});
+          let token = jwt.sign(
+              { 
+              fullname: user.fullname,
+              email: user.email,
+              role: user.role, 
+              id: user.id}, 
+              process.env.TOKEN, { expiresIn: 24 * 60 * 60});
 
-            let result = {
-                token: `Bearer ${token}`,
-                id: user.id,
-                fullname: user.fullname,
-                email: user.email,
-                role: user.role,
-                expiresIn: '24 hours',
-                email_verify: user.email_verify,
-                updatedAt: user.updatedAt,
-                createdAt: user.createdAt,
-            };
+          let result = {
+              token: `Bearer ${token}`,
+              id: user.id,
+              fullname: user.fullname,
+              email: user.email,
+              role: user.role,
+              expiresIn: '24 hours',
+              email_verify: user.email_verify,
+              updatedAt: user.updatedAt,
+              createdAt: user.createdAt,
+          };
 
-            // var option = {
-            //     httpOnly: true,
-            //     signed: true,
-            //     sameSite: true,
-            //     secure: (process.env.NODE_ENV !== 'development'),
-            //     secret: process.env.CSECRET
-            // }
+          var option = {
+              httpOnly: true,
+              signed: true,
+              sameSite: true,
+              secure: (process.env.NODE_ENV !== 'development'),
+              secret: process.env.CSECRET
+          }
 
-            res.json({
-                status: true,
-                data: result
-            })
-            
-            
+          res.status(200)
+          req.flash("success", "Successfully logged in");
+          res.cookie("jwt", token, option);
+          res.redirect("/dashboard/admin")
 
-            //res.status(200)
-            // req.flash("success", "Successfully logged in");
-            // res.cookie("jwt", token, option);
-            // res.redirect(`/dashboard/${role}`)
-
-            
-
-             
-
-        } else{
-           //res.status(403)
-        //   req.flash("warning", 'Wrong password');
-        //   res.redirect("back")
-        res.status(404).json({
-            status: false,
-            message: "User not found"
-        })
-        }
+      } else{
+         res.status(403)
+        req.flash("warning", 'Wrong password');
+        res.redirect("/login-admin")     
+      }
+      }
+      
+      
 
 
-    } catch(error){
-        console.error(error);
-        res.status(500).json({
-            status: false,
-            message: error
-        });
-        next(error);
-    //   req.flash("error", "An error occured refresh the page")
-    //   res.redirect("back")
-    }
+  } catch(error){
+      console.error(error);
+      // res.status(500).json({
+      //     status: false,
+      //     message: error
+      // });
+      // next(error);
+    req.flash("error", "An error occured refresh the page")
+    res.redirect("back")
+    next(error)
+  }
 };
 
-
-exports.userAuth = passport.authenticate('jwt', {session: true});
-
+exports.userAuth = passport.authenticate('jwt', {session: true, failureRedirect: "/login-admin", failureFlash: true});
 
 
 exports.profile = user => {
@@ -179,18 +153,105 @@ exports.profile = user => {
 
 };
 
+exports.createAdmin = async(req, res, next)=>{
+    const {email, password, role} = req.body;
+    try {
+        let user = await User.findOne({
+            where: {
+                email: email 
+                }
+            });
+        if(user) {
+            // res.status(302).json({
+            //     status: false,
+            //     message: "User already exist"
+            // })
+            req.flash("error", "User already exist")
+            res.redirect("back")
+        }
+        const salt = await bcrypt.genSalt(12);
+        const hashedPass = await bcrypt.hash(password, salt);
+
+        user = new User({
+            email,
+            password: hashedPass,
+            role: role,
+            email_verify: true
+        });
+    
+        const Newuser = await user.save();
+        res.status(200).json({
+            status: true,
+            data: Newuser
+        })
+
+
+    } catch (error) {
+        console.error(error);
+        next(error)
+    }
+}
+exports.userCount = async (rea, res, next)=>{
+    try {
+        const users = await User.count({where: {role: 'user'}})
+        if (users){
+            store.set("users", users);
+            console.log('users:',users)
+           
+                next();
+           
+        } else{
+          console.log("No user found", users)
+          store.set("users", users);
+                
+                next();
+        }
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            status: false,
+            message: "An error occured refresh the page"
+        })
+        next(error)
+        // req.flash("error", "An error occured refresh the page")
+    }
+}
 
 exports.getUsers = async (req, res, next)=>{
     try {
-        const users = await User.findAll({where: {role: 'user'}})
+        const users = await User.findAll({where: {role: 'user'}, raw: true})
         if (users){
-            return res.status(200).json({
-                status: true,
-                data: users})
+            store.set("users", JSON.stringify(users));
+            console.log('users:',users)
+           // res.status(200)
+            //res.send(users)
+                // return res.status(200).json({
+                // status: true,
+                // data: users});
+                let name = req.user.fullname.split(" ");
+                let email = req.user.email;
+                data = JSON.parse(store.get("users"));
+                console.log(data)
+                res.render("dashboard/admin/view-user", {
+                  user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                  email: email,
+                  data
+                });
+                next();
+           
         } else{
-            res.status(404).json({
-                status: false,
-                message: "No user found"})
+          console.log("No user found")
+          store.set("users", JSON.stringify(users));
+                let name = req.user.fullname.split(" ");
+                let email = req.user.email;
+                data = JSON.parse(store.get("users"));
+                console.log(data)
+                res.render("dashboard/admin/view-user", {
+                  user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                  email: email,
+                  data
+                });
+                next();
         }
        
     } catch (error) {
@@ -246,11 +307,8 @@ exports.updateUser = async(req, res, next) => {
                 email: req.user.email
             }
         })
-       return res.status(200).json({
-            status: true,
-            message: "Updated successfully",
-            data: user
-        })
+       return res.redirect("/dashboard/admin/")
+
     } catch(error){
         console.error(error)
         res.status(500).json({
@@ -261,17 +319,18 @@ exports.updateUser = async(req, res, next) => {
     }
 }
 
+
+      
+
 exports.deleteUser = async(req, res, next) => {
     try{
-        const user = await User.destroy({ where: {
-            email: req.user.email}
+         await User.destroy({ where: {
+            id: req.params.id}
         });
         
-        return res.status(200).json({
-            status: true,
-            message: "Updated successfully",
+        return console.log('status : delete user successfully' )
              
-        })
+        
     } catch(error){
         console.error(error)
         res.status(500).json({
@@ -282,11 +341,13 @@ exports.deleteUser = async(req, res, next) => {
     }
 };
 
+
 exports.checkRole = roles => (req, res, next) => {
 if(!roles.includes(req.user.role)){ 
     return res.status(401).json({
         status: false,
-        message: "Unauthorized"}) 
+        message: "Unauthorized"
+      }) 
     }
    return next();
 };

@@ -1,11 +1,14 @@
 const Product = require('../../model/renting');
 const Image = require('../../model/rentingimage');
+const Review = require("../../model/reviewrent")
 const cloudinary = require('../../util/cloudinary');
 const User = require('../../model/user');
 const fs = require('fs')
+const store = require('store')
 
-exports.createRentService = async(req, res) => {
-    const { title, description, location, equipment, per_time, price } = req.body;
+
+exports.createRentService = async(req, res, next) => {
+    const { title, description, location, equipment, per_time, price, available_rent } = req.body;
     try {
         const rent = new Product({
             title,
@@ -13,7 +16,8 @@ exports.createRentService = async(req, res) => {
             location,
             per_time,
             equipment,
-            price: price
+            price: price,
+            available_rent
         })
         var rentout = await rent.save();
 
@@ -56,23 +60,16 @@ exports.createRentService = async(req, res) => {
                 }
             ]});
 
-            res.status(201).json({
-                status: true,
-                data: output
-            });
+            res.redirect("/dashboard/admin/get-rent-services")
        
     } catch (error) {
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
 
-exports.getRentServices = async(req, res) => {
+exports.getRentAppServices = async(req, res, next) => {
     try {
         const length = req. query.length;
         var rent = await Product.findAll({
@@ -85,6 +82,20 @@ exports.getRentServices = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
     });
@@ -115,15 +126,123 @@ exports.getRentServices = async(req, res) => {
         }
     } catch (error) {
         console.error(error)
-       return res.status(500).json({
-            status: false,
-            message: "An error occured",
-            error: error
-        })
+        next(error);
     }
 }
 
-// exports.getRentForUser = async(req, res) => {
+
+exports.rentCount = async (rea, res, next)=>{
+    try {
+        const rents = await Product.count()
+        if (rents){
+            store.set("rents", rents);
+            console.log('rents found:', rents)
+           
+                next();
+           
+        } else{
+          console.log("no rents", rents)
+          store.set("rents", rents);
+                
+                next();
+        }
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            status: false,
+            message: "An error occured refresh the page"
+        })
+        next(error)
+        // req.flash("error", "An error occured refresh the page")
+    }
+}
+
+exports.getRentAdminServices = async(req, res, next) => {
+    try {
+        const length = req. query.length;
+        var rent = await Product.findAll({
+            order: [
+                ['createdAt', 'ASC']
+        ],
+        include:[
+            {
+                model: Image,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
+            }
+        ]
+    });
+
+        
+        if(rent){
+            
+            if(rent.length <= length || length === "" || !length){
+                
+                console.log("rents found")
+                store.set("rent", JSON.stringify(rent));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("rent"));
+                      console.log(data)
+                      res.render("dashboard/admin/rents", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data
+                      });
+                      next();
+            }else{
+                let begin = length - 10;
+                let end = length + 1
+                var sliced = rent.slice(begin, end)
+                console.log("rents found")
+                store.set("rent", JSON.stringify(rent));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("rent"));
+                      console.log(data)
+                      res.render("dashboard/admin/rents", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data
+                      });
+                      next();
+            }
+        } else{
+            console.log("No rents found")
+                store.set("rent", JSON.stringify(rent));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("rent"));
+                      console.log(data)
+                      res.render("dashboard/admin/rents", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data
+                      });
+                      next();
+        }
+    } catch (error) {
+        console.error(error)
+        next(error);
+    }
+}
+
+// exports.getRentForUser = async(req, res, next) => {
 //     try {
 //         var rent = await Product.findAll({ where: {
 //             userid: req.user.id,
@@ -160,7 +279,7 @@ exports.getRentServices = async(req, res) => {
 //     }
 // }
 
-exports.getRentByTitle = async(req, res) => {
+exports.getRentByTitle = async(req, res, next) => {
     const {title} = req.body;
     try {
         var rent = await Product.findAll({where: {
@@ -172,6 +291,20 @@ exports.getRentByTitle = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
     })
@@ -189,15 +322,11 @@ exports.getRentByTitle = async(req, res) => {
         }
     } catch (error) {
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.getRentById = async(req, res) => {
+exports.getRentById = async(req, res, next) => {
     const id= req.params.id;
     try {
         var rent = await Product.findOne({where: {
@@ -209,6 +338,20 @@ exports.getRentById = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
     })
@@ -227,16 +370,75 @@ exports.getRentById = async(req, res) => {
         }
     } catch (error) {
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.updateRent = async(req, res) => {
-    const { title, description, equipment, location, per_time, price } = req.body;
+exports.getRentByIdAdmin = async(req, res, next) => {
+    const id= req.params.id;
+    try {
+        var rent = await Product.findOne({where: {
+            id: id,
+        },
+        include:[
+            {
+                model: Image,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
+            }
+        ]
+    })
+        
+        if(rent){
+
+            console.log("rents found")
+            store.set("rent", JSON.stringify(rent));
+                  let name = req.user.fullname.split(" ");
+                  let email = req.user.email;
+                  data = JSON.parse(store.get("rent"));
+                  console.log(data);
+                  var img = data['rentimages']
+                  
+            // if(img.length){ for(var i=0; i< img.length; i++) {
+            //     console.log('image found :',i ,img[i].img_url)
+            // }}else{
+
+            // }
+
+                  res.render("dashboard/admin/rent-view", {
+                    user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                    email: email,
+                    data: data,
+                    img: img
+                  });
+                  
+    } else{
+        req.flash("error", "rent with id not found")
+        res.redirect("/dashboard/admin/")
+    }
+    } catch (error) {
+        console.error(error)
+        next(error);
+    }
+}
+
+exports.updateRent = async(req, res, next) => {
+    const { title, description, equipment, location, per_time, price, available_rent } = req.body;
     try{
        
             await Product.update({
@@ -246,6 +448,7 @@ exports.updateRent = async(req, res) => {
                 per_time: per_time,
                 equipment,
                 price: price,
+                available_rent,
             }, { where: {
                 id: req.params.id
             }})
@@ -257,15 +460,11 @@ exports.updateRent = async(req, res) => {
         
     } catch{
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.uploadRentImage = async(req, res) => {
+exports.uploadRentImage = async(req, res, next) => {
     try{
         if(req.files || req.file){
             const uploader = async (path) => await cloudinary.uploads(path, 'rentImages');
@@ -304,15 +503,11 @@ exports.uploadRentImage = async(req, res) => {
         
     } catch{
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.RemoveRentImage = async(req, res) => {
+exports.RemoveRentImage = async(req, res, next) => {
     try{
        
         await Image.findOne({
@@ -342,10 +537,6 @@ exports.RemoveRentImage = async(req, res) => {
      
     } catch{
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }

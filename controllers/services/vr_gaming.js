@@ -1,11 +1,14 @@
 const Product = require('../../model/vr_gaming');
 const Image = require('../../model/vr_gaming_image');
 const cloudinary = require('../../util/cloudinary');
+const Review = require("../../model/reviewgame")
 const User = require('../../model/user');
 const fs = require('fs')
+const store = require('store')
 
-exports.createGamingService = async(req, res) => {
-    const { title, description, genre, price, age_rate,} = req.body;
+
+exports.createGamingService = async(req, res, next) => {
+    const { title, description, genre, per_time, available_game, price, age_rate,} = req.body;
         try {  
             const game = new Product({
                     title,
@@ -13,6 +16,8 @@ exports.createGamingService = async(req, res) => {
                     genre,
                     price: price,
                     age_rate,
+                    available_game,
+                    per_time
                 })
                 var gameout = await game.save();
 
@@ -25,6 +30,7 @@ exports.createGamingService = async(req, res) => {
                         for (const file of files){
                             const { path } = file;
                             const newPath = await uploader(path)
+                            console.log(newPath)
                             urls.push(newPath.url);
                             ids.push(newPath.id)
                             fs.unlinkSync(path)
@@ -55,23 +61,16 @@ exports.createGamingService = async(req, res) => {
                     }
                 ]});
 
-            res.status(201).json({
-                status: true,
-                data: output
-            });
+                res.redirect("/dashboard/admin/get-gaming-posts")
+
         
     } catch (error) {
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-
-exports.getGamingServices = async(req, res) => {
+exports.getGamingAppServices = async(req, res, next) => {
     try {
         const length = req.query.length
         var game = await Product.findAll({
@@ -84,6 +83,20 @@ exports.getGamingServices = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
         });
@@ -122,7 +135,123 @@ exports.getGamingServices = async(req, res) => {
     }
 }
 
-// exports.getGamingForUser = async(req, res) => {
+exports.gameCount = async (rea, res, next)=>{
+    try {
+        const games = await Product.count()
+        if (games){
+            store.set("games", games);
+            console.log('games found:', games)
+           
+                next();
+           
+        } else{
+          console.log("no games", games)
+          store.set("games", games);
+                
+                next();
+        }
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            status: false,
+            message: "An error occured refresh the page"
+        })
+        next(error)
+        // req.flash("error", "An error occured refresh the page")
+    }
+}
+
+
+exports.getGamingServices = async(req, res, next) => {
+    try {
+        const length = req.query.length
+        var game = await Product.findAll({
+            order: [
+                ['createdAt', 'ASC']
+        ],
+        include:[
+            {
+                model: Image,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
+            }
+        ]
+        });
+
+        if(game){
+           
+            if(game.length <= length || length === "" || !length){
+
+                console.log("vr-games found")
+                store.set("vr-game", JSON.stringify(game));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("vr-game"));
+                      console.log(data)
+                      res.render("dashboard/admin/vr-games", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data
+                      });
+                      next();
+            }else{
+                let begin = length - 10;
+                let end = length + 1
+                var sliced = game.slice(begin, end)
+
+                console.log("vr-games found")
+                store.set("vr-game", JSON.stringify(game));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("vr-game"));
+                      console.log(data)
+                      res.render("dashboard/admin/vr-games", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data
+                      });
+                      next();
+            }
+        } else{
+            console.log("vr-games found")
+            store.set("vr-game", JSON.stringify(game));
+                  let name = req.user.fullname.split(" ");
+                  let email = req.user.email;
+                  data = JSON.parse(store.get("vr-game"));
+                  console.log(data)
+                  res.render("dashboard/admin/vr-games", {
+                    user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                    email: email,
+                    data
+                  });
+                  next();
+        }
+    } catch (error) {
+        console.error(error)
+       return res.status(500).json({
+            status: false,
+            message: "An error occured",
+            error: error
+        })
+    }
+}
+
+// exports.getGamingForUser = async(req, res, next) => {
 //     try {
 //         var game = await Product.findAll({ where: {
 //             userid: req.user.id,
@@ -158,7 +287,7 @@ exports.getGamingServices = async(req, res) => {
 //     }
 // }
 
-exports.getGamingByTitle = async(req, res) => {
+exports.getGamingByTitle = async(req, res, next) => {
     const {title} = req.body;
     try {
         var game = await Product.findAll({where: {
@@ -170,6 +299,20 @@ exports.getGamingByTitle = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
     })
@@ -186,15 +329,11 @@ exports.getGamingByTitle = async(req, res) => {
         }
     } catch (error) {
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.getGameById = async(req, res) => {
+exports.getGameById = async(req, res, next) => {
     const id= req.params.id;
     try {
         var game = await Product.findOne({where: {
@@ -206,6 +345,20 @@ exports.getGameById = async(req, res) => {
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]
     })
@@ -222,16 +375,74 @@ exports.getGameById = async(req, res) => {
         }
     } catch (error) {
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.updateGaming = async(req, res) => {
-    const { title, description, genre, price, age_rate,} = req.body;
+exports.getGameByIdAdmin = async(req, res, next) => {
+    const id= req.params.id;
+    try {
+        var game = await Product.findOne({where: {
+            id: id,
+        }, 
+        include:[
+            {
+                model: Image,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
+            }
+        ]
+    })
+        
+        if(game){
+            console.log("games found")
+            store.set("game", JSON.stringify(game));
+                  let name = req.user.fullname.split(" ");
+                  let email = req.user.email;
+                  data = JSON.parse(store.get("game"));
+                  console.log(data);
+                  var img = data['gameimages']
+                  
+            // if(img.length){ for(var i=0; i< img.length; i++) {
+            //     console.log('image found :',i ,img[i].img_url)
+            // }}else{
+
+            // }
+
+                  res.render("dashboard/admin/vr-game-view", {
+                    user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                    email: email,
+                    data: data,
+                    img: img
+                  });
+                  
+    } else{
+        req.flash("error", "game with id not found")
+        res.redirect("/dashboard/admin/")
+    }
+    } catch (error) {
+        console.error(error)
+        next(error);
+    }
+}
+
+exports.updateGaming = async(req, res, next) => {
+    const { title, description, available_game, per_time, genre, price, age_rate,} = req.body;
     try{
             await Product.update({
                 title: title,
@@ -239,6 +450,8 @@ exports.updateGaming = async(req, res) => {
                 genre: genre,
                 price: price,
                 age_rate: age_rate,
+                available_game,
+                per_time
             }, { where: {
                 id: req.params.id,
             }})
@@ -250,15 +463,11 @@ exports.updateGaming = async(req, res) => {
         
     } catch{
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.uploadGameImage = async(req, res) => {
+exports.uploadGameImage = async(req, res, next) => {
     try{
         if(req.files || req.file){
             const uploader = async (path) => await cloudinary.uploads(path, 'gameImages');
@@ -297,15 +506,11 @@ exports.uploadGameImage = async(req, res) => {
         
     } catch{
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.RemoveGameImage = async(req, res) => {
+exports.RemoveGameImage = async(req, res, next) => {
     try{
        
         await Image.findOne({
@@ -335,10 +540,6 @@ exports.RemoveGameImage = async(req, res) => {
      
     } catch{
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }

@@ -1,34 +1,39 @@
 const Product = require('../../model/food');
-const Extras = require('../../model/foodextras')
+const Extras = require('../../model/foodextras');
+const Review = require("../../model/reviewfood")
+const Package = require("../../model/foodpackaging")
 const Image = require('../../model/foodimage')
 const cloudinary = require('../../util/cloudinary');
 const User = require('../../model/user');
 const fs = require('fs');
+const store = require('store');
 
 
 
-exports.createFoodService = async(req, res) => {
-    const { title, description, ingredients, price } = req.body;
+exports.createFoodService = async(req, res, next) => {
+    const { title, description, price } = req.body;
+
     try {
-
-        var food = new Product({
+        const food = new Product({
             title,
             description,
-            ingredients,
             price: price,
         })
-        var  foodout = await food.save();
+        const  foodout = await food.save();
 
         if(req.files || req.file){
               const uploader = async (path) => await cloudinary.uploads(path, 'foodImages');
                 var urls = [];
-                var ids = []
+                var ids = [];
                 const files = req.files;
                 for (const file of files){
                     const { path } = file;
+                    console.log(path)
                     const newPath = await uploader(path)
+                    console.log(newPath)
                     urls.push(newPath.url);
                     ids.push(newPath.id)
+                    console.log(newPath.url, newPath.id)
                     fs.unlinkSync(path)
                 }
 
@@ -50,7 +55,8 @@ exports.createFoodService = async(req, res) => {
 
 
         if(req.body.top && req.body.topPrice){
-                const top_price = (top, price)=>{
+            if(Array.isArray(req.body.top)){
+                var top_price = (top, price)=>{
                     var output = []
                     for(let i = 0; i<top.length; i++){
                         output.push({
@@ -61,10 +67,52 @@ exports.createFoodService = async(req, res) => {
                     };
                     return output;
                 }
+            }else{
+                top_price = (top, price)=>{
+                    var output = []
+                    output.push({
+                        foodId: foodout.id,
+                        topping: top,
+                        price: price
+                    }); 
+                
+                    return output;
+                }
+            }
+                
                 //console.log(top_price(req.body.top, req.body.topPrice));
-                var toppings = await Extras.bulkCreate(top_price(req.body.top, req.body.topPrice), {returning: true})
-           
-            
+              await Extras.bulkCreate(top_price(req.body.top, req.body.topPrice), {returning: true})
+        }
+
+        if(req.body.packageName && req.body.packagePrice){
+            if(Array.isArray(req.body.packageName)){
+                var package_price = (package, price)=>{
+                    var output = []
+                    for(let i = 0; i<package.length; i++){
+                        output.push({
+                            foodId: foodout.id,
+                            name: package[i],
+                            price: price[i]
+                        }); 
+                    };
+                    return output;
+                }
+            }else{
+                package_price = (package, price)=>{
+                    var output = []
+                    output.push({
+                        foodId: foodout.id,
+                        name: package,
+                        price: price
+                    }); 
+                
+                    return output;
+                }
+            }
+                
+                //console.log(top_price(req.body.top, req.body.topPrice));
+                var packaging = await Package.bulkCreate(package_price(req.body.packageName, req.body.packagePrice), {returning: true})
+
         }
 
         var out = await Product.findOne({
@@ -78,6 +126,12 @@ exports.createFoodService = async(req, res) => {
                     }
                 },
                 {
+                    model: Package,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
                     model: Image,
                     attributes: {
                         exclude: ["createdAt", "updatedAt"]
@@ -86,25 +140,42 @@ exports.createFoodService = async(req, res) => {
             ]
         })
 
-        res.status(201).json({
-            status: true,
-            data: out
-        });
+        res.redirect("/dashboard/admin/food-products")
        
         
     } catch (error) {
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 };
 
+exports.foodCount = async (rea, res, next)=>{
+    try {
+        const foods = await Product.count({raw: true})
+        if (foods){
+            store.set("foods", foods);
+            console.log('foods found:', foods)
+           
+                next();
+           
+        } else{
+          console.log("no foods", foods)
+          store.set("foods", foods);
+                
+                next();
+        }
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({
+            status: false,
+            message: "An error occured refresh the page"
+        })
+        next(error)
+        // req.flash("error", "An error occured refresh the page")
+    }
+}
 
-
-exports.getFoodServices = async(req, res) => {
+exports.getFoodAppServices = async(req, res, next) => {
     try {
         const length = req.query.length;
 
@@ -117,10 +188,30 @@ exports.getFoodServices = async(req, res) => {
                     }
                 },
                 {
+                    model: Package,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
                     model: Image,
                     attributes: {
                         exclude: ["createdAt", "updatedAt"]
                     }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
                 }
             ],
         order: [
@@ -156,16 +247,131 @@ exports.getFoodServices = async(req, res) => {
         }
     } catch (error) {
         console.error(error)
-       return res.status(500).json({
-            status: false,
-            message: "An error occured",
-            error: error
-        })
+        next(error);
+    }
+}
+
+exports.getFoodServices = async(req, res, next) => {
+    try {
+        const length = req.query.length;
+
+        var food = await Product.findAll({
+            include:[
+                {
+                    model: Extras,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Package,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Image,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
+                }
+            ],
+        order: [
+            ['createdAt', 'ASC']
+        ],
+        // raw: true
+    
+    });
+
+        
+        if(food){
+
+            if(food.length <= length || length === "" || !length){
+               
+                // res.status(200).json({
+                //     status: true,
+                //     data: food
+                // });
+               
+                // console.log(food)
+                var foodstring = JSON.stringify(food)
+            store.set("food", foodstring);
+            let name = req.user.fullname.split(" ");
+            let email = req.user.email;
+            data = JSON.parse(store.get("food"));
+            console.log(data);
+            res.render("dashboard/admin/food-products", {
+              user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+              email: email,
+              data: data
+            }
+            );
+            next()
+               
+            }else{
+                
+                let begin = length - 10;
+                let end = length + 1
+                var sliced = food.slice(begin, end)
+                // res.status(200).json({
+                //     status: true,
+                //     data: sliced
+                // });
+                console.log(food)
+                var foodstring = JSON.stringify(food)
+            store.set("food", foodstring);
+            let name = req.user.fullname.split(" ");
+            let email = req.user.email;
+            data = JSON.parse(store.get("food"));
+            res.render("dashboard/admin/food-products", {
+              user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+              email: email,
+              data: data
+            }
+            );
+            next()
+            }
+        } else{
+            // res.status(404).json({
+            //     status: true,
+            //     message: "Posts not Found"
+            // })
+            console.log('no food uploaded')
+                var foodstring = JSON.stringify(food)
+            store.set("food", foodstring);
+            let name = req.user.fullname.split(" ");
+            let email = req.user.email;
+            data = JSON.parse(store.get("food"));
+            res.render("dashboard/admin/food-products", {
+              user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+              email: email,
+              data: data
+            }
+            );
+            next()
+        }
+    } catch (error) {
+        console.error(error)
+        next(error);
     }
 }
 
 
-exports.getFoodByTitle = async(req, res) => {
+exports.getFoodByTitle = async(req, res, next) => {
     const {title} = req.body;
     try {
         var food = await Product.findOne({where: {
@@ -178,10 +384,30 @@ exports.getFoodByTitle = async(req, res) => {
                     }
                 },
                 {
+                    model: Package,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    }
+                },
+                {
                     model: Image,
                     attributes: {
                         exclude: ["createdAt", "updatedAt"]
                     }
+                },
+                {
+                    model: Review,
+                    attributes: {
+                        exclude: ["createdAt", "updatedAt"]
+                    },
+                    include:[
+                        {
+                            model: User,
+                            attributes: {
+                                exclude: ["createdAt", "updatedAt"]
+                            },
+                        }
+                    ]
                 }
             ]}
         )
@@ -198,15 +424,11 @@ exports.getFoodByTitle = async(req, res) => {
         }
     } catch (error) {
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.getFoodById = async(req, res) => {
+exports.getFoodById = async(req, res, next) => {
     const id= req.params.id;
     try {
         var food = await Product.findOne({where: {
@@ -219,10 +441,30 @@ exports.getFoodById = async(req, res) => {
                 }
             },
             {
+                model: Package,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
                 model: Image,
                 attributes: {
                     exclude: ["createdAt", "updatedAt"]
                 }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
             }
         ]})
        
@@ -239,21 +481,91 @@ exports.getFoodById = async(req, res) => {
         }
     } catch (error) {
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.updateFood = async(req, res) => {
-    const {title, description, ingredents, price} = req.body;
+exports.getFoodByIdAdmin = async(req, res, next) => {
+    const id= req.params.id;
+    try {
+        var food = await Product.findOne({where: {
+            id: id,
+        }, include:[
+            {
+                model: Extras,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Package,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Image,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                }
+            },
+            {
+                model: Review,
+                attributes: {
+                    exclude: ["createdAt", "updatedAt"]
+                },
+                include:[
+                    {
+                        model: User,
+                        attributes: {
+                            exclude: ["createdAt", "updatedAt"]
+                        },
+                    }
+                ]
+            }
+        ]})
+       
+        if(food){
+            console.log("foods found")
+                store.set("food", JSON.stringify(food));
+                      let name = req.user.fullname.split(" ");
+                      let email = req.user.email;
+                      data = JSON.parse(store.get("food"));
+                      console.log(data);
+                      console.log(data.foodextras)
+                      var img = data['foodimages']
+                      
+                // if(img.length){ for(var i=0; i< img.length; i++) {
+                //     console.log('image found :',i ,img[i].img_url)
+                // }}else{
+
+                // }
+
+                      res.render("dashboard/admin/food-view", {
+                        user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
+                        email: email,
+                        data: data,
+                        img: img
+                      });
+                      
+        } else{
+            req.flash("error", "food with id not found")
+            res.redirect("/dashboard/admin/")
+        }
+    } catch (error) {
+        console.error(error)
+        next(error);
+    }
+}
+
+exports.updateFood = async(req, res, next) => {
+
+    const {title, description, price} = req.body;
     try{
             await Product.update({
                 title: title,
+                category: category,
                 description: description,
-                ingredents: ingredents,
                 price: price,
             }, { where: {
                 id: req.params.id,
@@ -266,15 +578,11 @@ exports.updateFood = async(req, res) => {
         
     } catch{
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.uploadFoodImage = async(req, res) => {
+exports.uploadFoodImage = async(req, res, next) => {
     try{
         if(req.files || req.file){
             const uploader = async (path) => await cloudinary.uploads(path, 'foodImages');
@@ -313,15 +621,11 @@ exports.uploadFoodImage = async(req, res) => {
         
     } catch{
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
 
-exports.RemoveFoodImage = async(req, res) => {
+exports.RemoveFoodImage = async(req, res, next) => {
     try{
        
         await Image.findOne({
@@ -351,10 +655,6 @@ exports.RemoveFoodImage = async(req, res) => {
      
     } catch{
         console.error(error)
-        return res.status(500).json({
-             status: false,
-             message: "An error occured",
-             error: error
-         })
+        next(error);
     }
 }
