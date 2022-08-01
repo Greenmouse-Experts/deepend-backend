@@ -11,7 +11,7 @@
                     <!-- begin page title -->
                     <div class="d-block d-lg-flex flex-nowrap align-items-center">
                         <div class="page-title mr-4 pr-4 border-right">
-                            <h4 class="hey">View Users</h4>
+                            <h4 class="hey">View All Dispatch Riders</h4>
                         </div>
                     </div>
                     <!-- end page title -->
@@ -37,14 +37,9 @@
                         <table border="1" class="open-section-2 table">
                             <tr class="mode-1">
                                 <th width="50">S/N</th>
-                                <th>FullName</th>
-                                <th>Email</th>
-                                <th>Phone Number</th>
-                                <th>Country</th>
-                                <th>Address</th>
-                                <th>Role</th>
+                                <th>Title</th>
+                                <th>Ref link</th>
                                 <th>Created At</th>
-                                <th>Action</th>
                             </tr>
 
                             <% if(data.length){ for(var i=0; i< data.length; i++) {%>
@@ -53,30 +48,13 @@
                                         <%= (i+1) %>
                                     </td>
                                     <td>
-                                        <%= data[i].fullname%>
+                                        <%= data[i].title%>
                                     </td>
                                     <td>
-                                        <%= data[i].email%>
-                                    </td>
-                                    <td>
-                                        <%= data[i].phone_no%>
-                                    </td>
-                                    <td>
-                                        <%= data[i].country%>
-                                    </td>
-                                    <td>
-                                        <%= data[i].address%>
-                                    </td>
-                                    <td>
-                                        <%= data[i].role%>
+                                        <%= data[i].ref_link%>
                                     </td>
                                     <td>
                                         <%= new Date(data[i].createdAt).toDateString()%>
-                                    </td>
-                                    <td>
-                                        <a href="/dashboard/admin/delete-user/<%= data[i].id%>">
-                                            <img src="assets4/img/delete.png" style="height:15px;width:15px;" draggable="false" alt="">
-                                        </a>
                                     </td>
                                 </tr>
                                 <% } }else{ %>
@@ -86,7 +64,7 @@
                                     <% } %>
 
                         </table>
-                        <div class="view">View all users <i class="bi bi-arrow-right"></i></div>
+                        <div class="view">View all Ads<i class="bi bi-arrow-right"></i></div>
                     </div>
                 </div>
             </div>
