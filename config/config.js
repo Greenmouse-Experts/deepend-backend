@@ -4,13 +4,15 @@ require('dotenv').config();
 const database = process.env.DATABASE;
 const username = process.env.USER;
 const password = process.env.PASSWORD;
-const host = process.env.HOST
+const host = process.env.HOST;
+const port = process.env.DB_PORT;
 
 const url = process.env.DB_URL
 
 
-var db = new Sequelize(database, username, password, {
+var db = new Sequelize(database, 'root', 'root', {
     host: host,
+    port: port,
     dialect: 'mysql',
     pool: {
       maxConnections: 10,
