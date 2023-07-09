@@ -16,7 +16,7 @@ exports.getAllTransactions = async(req, res, next)=>{
                       let email = req.user.email;
                       data = JSON.parse(store.get("trans"));
                       console.log(data)
-                      res.render("dashboard/admin/getAlltransactions", {
+                      res.render("dashboard/admin/getAllTransactions", {
                         user: name[0].charAt(0).toUpperCase() + name[0].slice(1),
                         email: email,
                         data: data
