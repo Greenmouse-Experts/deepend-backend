@@ -184,6 +184,7 @@ router.route("/dashboard/profile").get(jwtAuth, async (req, res) => {
 });
 
 router.route("/dashboard/profile/update").post(jwtAuth, updateUser);
+router.route("/dashboard/profile/delete").post(jwtAuth, deleteUser);
 
 router
   .route("/dashboard/profile/upload-pic")

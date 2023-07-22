@@ -636,7 +636,7 @@ exports.deleteUser = async (req, res) => {
 
     return res.status(200).json({
       status: true,
-      message: "Updated successfully",
+      message: "Deleted successfully",
     });
   } catch (error) {
     console.error(error);
