@@ -770,6 +770,24 @@ exports.deleteHotel = async (req, res, next) => {
         }).then(async (hotel) => {
             if (hotel) {
                 console.log(hotel)
+
+                      if (hotel.hotelbookings?.length) {
+                        await HotelBooking.findAll({
+                          where: {
+                            hotelId: hotel.id,
+                          },
+                        }).then(async (hotelbookings) => {
+                          if (hotelbookings?.length) {
+                            for (var i = 0; i < extras.length; i++) {
+                              await HotelBooking.destroy({
+                                where: {
+                                  id: hotelbookings[i].id,
+                                },
+                              });
+                            }
+                          }
+                        });
+                      }
                 if (hotel.hotelextras?.length) {
                     await Extras.findAll({
                         where: {
