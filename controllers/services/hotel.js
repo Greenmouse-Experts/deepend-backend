@@ -5,6 +5,8 @@ const Review = require("../../model/reviewhotel")
 const User = require('../../model/user');
 // const Amenity = require('../../model/amenities');
 const Extras = require('../../model/hotelextras')
+const HotelBooking = require("../../model/hotelbooking");
+
 const fs = require('fs')
 const store = require('store')
 
@@ -760,10 +762,14 @@ exports.deleteHotel = async (req, res, next) => {
                 {
                     model: Image,
 
+                },
+                {
+                    model: HotelBooking
                 }
             ]
         }).then(async (hotel) => {
             if (hotel) {
+                console.log(hotel)
                 if (hotel.hotelextras?.length) {
                     await Extras.findAll({
                         where: {
