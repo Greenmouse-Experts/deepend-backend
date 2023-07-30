@@ -778,7 +778,7 @@ exports.deleteHotel = async (req, res, next) => {
                           },
                         }).then(async (hotelbookings) => {
                           if (hotelbookings?.length) {
-                            for (var i = 0; i < extras.length; i++) {
+                            for (var i = 0; i < hotelbookings.length; i++) {
                               await HotelBooking.destroy({
                                 where: {
                                   id: hotelbookings[i].id,
