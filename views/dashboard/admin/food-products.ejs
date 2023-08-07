@@ -67,11 +67,31 @@
                                 </td> 
                                 <td>
                                     <a href="/dashboard/admin/food-view/<%= data[i].id%>">
+<<<<<<< HEAD
                                         <img src="assets4/img/edit.png" style="height:15px;width:15px;" draggable="false" alt="">
                                     </a>
                                     <a href="/dashboard/admin/deleteFood/<%= data[i].id%>">
                                         <img src="assets4/img/delete.png" style="height:15px;width:15px;" draggable="false" alt="">
                                     </a>
+=======
+                                                                                <i class="fa fa-eye"></i>
+
+                                    </a>
+                                    <a onclick="confirmation('<%= data[i].id%>')">
+                                        <img src="assets4/img/delete.png" style="height:15px;width:15px;" draggable="false" alt="">
+                                    </a>
+
+                                    <script>
+                                      function confirmation(id){
+                                        var result = confirm("Are you sure to delete this food product?");
+                                        if(result){
+                                          console.log("Deleted")
+                                          console.log("/dashboard/admin/deleteFood/" + id);
+                                          window.location="/dashboard/admin/deleteFood/" + id;
+                                        }
+                                      }
+                                    </script>
+>>>>>>> 3604926e3bcaa891553f07c089fc691e7998ba48
                                 </td>
                             </tr>
                             <% } }else{ %>

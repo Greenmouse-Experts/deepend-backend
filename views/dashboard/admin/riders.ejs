@@ -70,9 +70,25 @@
                                         <%= new Date(data[i].createdAt).toDateString()%>
                                     </td>
                                     <td>
+<<<<<<< HEAD
                                         <a href="/dashboard/admin/delete-rider/<%= data[i].id%>">
                                             <img src="assets4/img/delete.png" style="height:15px;width:15px;" draggable="false" alt="">
                                         </a>
+=======
+                                    <a onclick="confirmation('<%= data[i].id%>')">
+                                            <img src="assets4/img/delete.png" style="height:15px;width:15px;" draggable="false" alt="">
+                                        </a>
+                                        <script>
+                                            function confirmation(id){
+                                              var result = confirm("Are you sure to delete this Dispatch Rider?");
+                                              if(result){
+                                                console.log("Deleted")
+                                                console.log("/dashboard/admin/delete-rider/" + id);
+                                                window.location="/dashboard/admin/delete-rider/" + id;
+                                              }
+                                            }
+                                          </script>
+>>>>>>> 3604926e3bcaa891553f07c089fc691e7998ba48
                                     </td>
                                 </tr>
                                 <% } }else{ %>
